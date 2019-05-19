@@ -1,8 +1,40 @@
 grammar xtext.Pycom with org.eclipse.xtext.common.Terminals
 generate pycom "http://www.Pycom.xtext"
-	
+
 System:
-	boards+=Board* servers+=Server*;
+	hardware+=Hardware* boards+=Board* servers+=Server*;
+
+Hardware:
+	'Hardware' name=ID '{' boardMembers+=BoardMember*  function=Function? '}'
+;
+
+Function:
+	{Function} 'Function' '{' functiondef+=FunctionDefinitions* '}'
+;
+
+FunctionDefinitions:
+	name=ID '(' parameters+=ParameterString? (',' parameters+=ParameterString)* ')' 'as' externalFunction=ExternalFunction
+;
+
+ExternalFunction:
+	filename=Filename '.' name=ID '(' parameters+=ParameterType? (',' parameters+=ParameterType)* ')'
+;
+	
+Filename: 
+	name=ID
+;
+
+ParameterType:
+	value=INT | ParameterString
+;
+
+ParameterString:
+	name=ID
+;
+
+FunctionCall:
+	board=[Board] '.' function=[FunctionDefinitions] '(' parameters+=ParameterType? (',' parameters+=ParameterType)* ')' | function=[FunctionDefinitions] '(' parameters+=ParameterType? (',' parameters+=ParameterType)* ')'
+;
 	
 Server:
 	'Server' name=ID '('conn=Connection')' '{' exps+=ConditionalAction* '}' 
@@ -25,16 +57,17 @@ Port:
 ;
 
 Board:
-	'Board' name=ID '{' boardMembers+=BoardMember* '}';
+	'Board' name=ID 'implements' hardware=[Hardware] '{' exps+=ExpMember* '}';
 
 BoardMember:
 	Sensor | Actuator | Communication;
 
 ConditionalAction:
-	type='if' '(' condition=Condition ')' '{' ExpMembers+=ExpMember* '}' | type='while' '(' condition=Condition ')' '{' ExpMembers+=ExpMember* '}';
+	type='if' '(' condition=Condition ')' '{' ExpMembers+=ExpMember* '}'
+;
 
 ExpMember:
-	Function | ConditionalAction;
+	FunctionCall | ConditionalAction;
 
 Sensor:
 	'Sensor' sensorTypes+=SensorType (',' sensorTypes+=SensorType)*;
@@ -78,7 +111,7 @@ ComparisonExp:
 ;
 
 Expression:
-	outputValue=INT | outputfunction=Function
+	outputValue=INT | outputfunction=FunctionCall
 ;
 
 Operator:
@@ -87,7 +120,7 @@ Operator:
 Number: 
 	INT
 ;
-	
+/*	
 Function: 
 	ModuleFunction | board=[Board] '.' functionName=FunctionName
 ;
@@ -99,3 +132,4 @@ ModuleFunction:
 FunctionName:
 	name=ID
 ;
+*/

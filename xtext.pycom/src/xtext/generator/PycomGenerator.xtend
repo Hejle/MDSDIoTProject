@@ -27,8 +27,8 @@ import javax.swing.JOptionPane
 import java.util.List
 import xtext.pycom.ExpMember
 import xtext.pycom.Connection
-import xtext.pycom.ModuleFunction
 import java.util.ArrayList
+import xtext.pycom.FunctionCall
 
 /**
  * Generates code from your model files on save.
@@ -37,7 +37,7 @@ import java.util.ArrayList
  */
 class PycomGenerator extends AbstractGenerator {
 	
-	var externalFilesMap = new HashMap<String, URL>();
+var externalFilesMap = new HashMap<String, URL>();
 	var moduleMap = new HashMap<String, String>();
 	
 	var HashMap<String, String> importcode
@@ -235,14 +235,17 @@ class PycomGenerator extends AbstractGenerator {
 	}
 	
 	def getPostAddress(Board board, Function function) {
+		/* TODO
 		if(function instanceof ModuleFunction) {
 			return '''/«board.name»/«function.moduleType.typeName»/«function.moduleType.name»/«function.functionName.name»/float/{}'''
 		} else {
 			return '''/«board.name»/«function.functionName.name»/float/{}'''
 		}
+		*/
 	}
 	
-	def generateThresholdFunction(Board board, Resource resource, Function function, int i, String op, Server server) {	
+	def generateThresholdFunction(Board board, Resource resource, FunctionCall function, int i, String op, Server server) {	
+		/*
 		var postaddress = getPostAddress(board, function)
 		var threshold = '''
 		var passedTreshold = False
@@ -268,9 +271,11 @@ class PycomGenerator extends AbstractGenerator {
 		'''
 		logicmap.put(function.functionName.name, threshold)
 		functionmap.put(function.functionName.name, funk)
+		*/
 	}
 	
-	def generateDoubleFunction(Board board, Resource resource, Function function, Function function2, String op, Server server) {
+	def generateDoubleFunction(Board board, Resource resource, FunctionCall function, FunctionCall function2, String op, Server server) {
+		/* TODO
 		var postaddress = getPostAddress(board, function)
 		var transmitcode = '''
 		«function.functionName.name»Value = «function.functionName.name»()
@@ -299,9 +304,11 @@ class PycomGenerator extends AbstractGenerator {
 		logicmap.put(function.functionName.name, transmitcode)
 		functionmap.put(function.functionName.name, funk)
 		functionmap.put(function.functionName.name, funk2)
+		*/
 	}
 	
 	def genFunction(Board board, Resource resource, Function function, Server server) {
+		/* TODO
 		if(function.board.equals(board)) {
 			var address = getServerAddress(server.conn)
 			var String sendUrl;
@@ -327,9 +334,11 @@ class PycomGenerator extends AbstractGenerator {
 			'''
 			functionmap.put(function.functionName.name, funk)
 		}
+		*/
 	}
 	
 	def generatePycomSensor(Board b, Resource r) {
+		/* //TODO
 		for (sensor : b.boardMembers.filter(typeof(Sensor))) {
 			for (sensortype : sensor.sensorTypes.filter(typeof(SensorType))) {
 				if (!importcode.containsKey(sensortype.typeName)) {
@@ -339,6 +348,8 @@ class PycomGenerator extends AbstractGenerator {
 				}
 			}
 		}
+		
+		*/
 	}
 	
 	def generateSensorCode(Board board, Resource resource, SensorType type) {
@@ -376,6 +387,7 @@ class PycomGenerator extends AbstractGenerator {
 	}
 	
 	def generatePycomActuator(Board b, Resource r) {
+		/* TODO
 		for (actuator : b.boardMembers.filter(typeof(Actuator))) {
 			for (actuatortype : actuator.actuatorTypes.filter(typeof(ActuatorType))) {
 				if (!importcode.containsKey(actuatortype.typeName)) {
@@ -384,6 +396,7 @@ class PycomGenerator extends AbstractGenerator {
 				}
 			}
 		}
+		*/
 	}
 	
 	def generateActuatorCode(Board board, Resource resource, ActuatorType type) {
@@ -422,6 +435,7 @@ class PycomGenerator extends AbstractGenerator {
 	}
 	
 	def generatePycomConnection(Board b, Resource r) {
+		/* TODO
 		for (a : b.boardMembers.filter(Communication)) {
 			if (!importcode.containsKey(a.type)) {
 				if (a.type.equals("WiFi")) {
@@ -440,6 +454,7 @@ class PycomGenerator extends AbstractGenerator {
 			    }
 			}
 		}
+		*/
 	}
 
 	def generatePycomWifiImport(Board b, Resource r) {	
@@ -542,14 +557,15 @@ class PycomGenerator extends AbstractGenerator {
 			{
 				generateVariableConditionalAction(server, exp)
 			} 
-			else if(exp instanceof Function) 
+			else if(exp instanceof FunctionCall) 
 			{
 				generateVariableFunction(exp)
 			}
 		}
 	}
 	
-	def void generateVariableFunction(Function exp) {
+	def void generateVariableFunction(FunctionCall exp) {
+		/* TODO
 		var String varname;
 			if(exp instanceof ModuleFunction) {
 				if(exp.moduleType instanceof ActuatorType) {
@@ -577,7 +593,8 @@ class PycomGenerator extends AbstractGenerator {
 					variableNamesForPostAndGetRoutes.put(varname,"Function")
 				}
 				
-			}														
+			}	
+			*/													
 	}
 	
 	def void generateVariableFromCondition(Condition condition) {
@@ -646,6 +663,7 @@ class PycomGenerator extends AbstractGenerator {
 	
 	def GenerateIfFunctions(StringBuilder stringBuilder, ConditionalAction conditionalAction, Resource r, String type, Server s, int counter)
 	{
+		/*
 		var conditionalStringBuilder = new StringBuilder();
 		var content = GetConditionalStatementContent(conditionalStringBuilder, conditionalAction.condition);		
 		var scopeContent = GetConditionalStatementScopeContent(conditionalAction.expMembers);								
@@ -706,11 +724,12 @@ class PycomGenerator extends AbstractGenerator {
 			}	
 						
 		'''				
-		)																		
+		)		
+		*/																
 	}
 	
-	def GetConditionalStatementScopeContent(List<ExpMember> content)
-	{
+	def GetConditionalStatementScopeContent(List<ExpMember> content) {
+		/* TODO
 		val scopeContentBuilder = new StringBuilder();		
 		
 		for (exp : content) 
@@ -740,10 +759,12 @@ class PycomGenerator extends AbstractGenerator {
 		}
 		
 		return scopeContentBuilder.toString;
+		*/
 	}
 	
 	def GetConditionalStatementContent(StringBuilder stringBuilder, Condition condition)
-	{																	
+	{		
+		/*															
 		if(condition.logicEx.compExp.left.outputfunction != null)
 		{		
 			val String boardName = condition.logicEx.compExp.left.outputfunction.board.name;
@@ -788,5 +809,9 @@ class PycomGenerator extends AbstractGenerator {
 		}	
 		
 		return stringBuilder.toString;
+		*/
 	}
+	
+	
+	
 }

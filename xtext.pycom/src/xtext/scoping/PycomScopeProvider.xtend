@@ -8,8 +8,10 @@ import org.eclipse.emf.ecore.EReference
 import xtext.pycom.PycomPackage.Literals
 import org.eclipse.xtext.EcoreUtil2
 import org.eclipse.xtext.scoping.Scopes
-import xtext.pycom.ModuleFunction
-import xtext.pycom.ModuleType
+import xtext.pycom.FunctionCall
+import xtext.pycom.FunctionDefinitions
+import javax.swing.JOptionPane
+import xtext.pycom.Board
 
 /**
  * This class contains custom scoping description.
@@ -20,13 +22,21 @@ import xtext.pycom.ModuleType
 class PycomScopeProvider extends AbstractPycomScopeProvider {
 
 	override getScope(EObject context, EReference reference) {
-		if(context instanceof ModuleFunction && reference == Literals.MODULE_FUNCTION__MODULE_TYPE){
-			val board = (context as ModuleFunction).board
-			val candidates = EcoreUtil2.getAllContentsOfType(board, ModuleType)			
+		if(context instanceof FunctionCall && reference == Literals.FUNCTION_CALL__FUNCTION){
+			var Board board;
+			if((context as FunctionCall).board !== null) {
+				board = (context as FunctionCall).board
+			} else if(EcoreUtil2.getContainerOfType(context, Board) instanceof Board) {
+				board = EcoreUtil2.getContainerOfType(context, Board) as Board	
+			} else {
+				return super.getScope(context, reference);
+			}		
+			var hardware = board.hardware.function
+			var candidates = EcoreUtil2.getAllContentsOfType(hardware, FunctionDefinitions)	
 			return Scopes.scopeFor(candidates);
 		}
-		
 		return super.getScope(context, reference)
+		
 	}
 
 }
