@@ -27,8 +27,10 @@ import javax.swing.JOptionPane
 import java.util.List
 import xtext.pycom.ExpMember
 import xtext.pycom.Connection
+import xtext.pycom.ParameterType
 import java.util.ArrayList
 import xtext.pycom.FunctionCall
+import xtext.pycom.ModuleType
 
 /**
  * Generates code from your model files on save.
@@ -37,8 +39,19 @@ import xtext.pycom.FunctionCall
  */
 class PycomGenerator extends AbstractGenerator {
 	
-var externalFilesMap = new HashMap<String, URL>();
-	var moduleMap = new HashMap<String, String>();
+	//var externalFilesMap = new HashMap<String, URL>();
+	//var moduleMap = new HashMap<String, String>();
+	
+	/*if(externalFilesMap.containsKey(k)) {
+				try {
+					var url = externalFilesMap.get(k)
+					var filename = Paths.get(url.toURI.getPath()).getFileName().toString()
+					fsa.generateFile(filename, new BufferedInputStream(url.openStream()))
+				} catch (IOException e) {
+					//Handle Download Exception Errors :)
+					e.printStackTrace()
+				}
+			} */
 	
 	var HashMap<String, String> importcode
 	var HashMap<String, String> codeMap
@@ -47,8 +60,6 @@ var externalFilesMap = new HashMap<String, URL>();
 	var HashMap<String, String> functionmap
 	
 	override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {
-		
-		populateHashmap()
 		
 		for (board : resource.allContents.toIterable.filter(typeof(Board))) {
 			fsa.generateFile(board.name + ".py", generatePycomFiles(board, resource, fsa))			
@@ -80,10 +91,10 @@ var externalFilesMap = new HashMap<String, URL>();
 		}	
 	}
 	
-	def populateHashmap() {
-		externalFilesMap.put("Temperature", new URL("https://raw.githubusercontent.com/pycom/pycom-libraries/master/pysense/lib/SI7006A20.py"))
-		moduleMap.put("Temperature", "SI7006A20")
-	}
+	//def populateHashmap() {
+	//	externalFilesMap.put("Temperature", new URL("https://raw.githubusercontent.com/pycom/pycom-libraries/master/pysense/lib/SI7006A20.py"))
+	//	moduleMap.put("Temperature", "SI7006A20")
+	//}
 	
 	//  «»
 	// EzCopy
@@ -117,16 +128,6 @@ var externalFilesMap = new HashMap<String, URL>();
 	def generatePycomImports(Board b, Resource r, IFileSystemAccess2 fsa) { 
 		val sb = new StringBuilder();
 		importcode.forEach[k, v| {
-			if(externalFilesMap.containsKey(k)) {
-				try {
-					var url = externalFilesMap.get(k)
-					var filename = Paths.get(url.toURI.getPath()).getFileName().toString()
-					fsa.generateFile(filename, new BufferedInputStream(url.openStream()))
-				} catch (IOException e) {
-					//Handle Download Exception Errors :)
-					e.printStackTrace()
-				}
-			}
 			sb.append(v + "\n")
 		}]
 		return sb.toString
@@ -164,18 +165,45 @@ var externalFilesMap = new HashMap<String, URL>();
 		codeMap = new HashMap<String, String>();
 		logicmap = new HashMap<String, String>();
 		functionmap = new HashMap<String, String>();
-		generatePycomConnection(b, r)
 		generatePycomActuator(b, r)
 		generatePycomSensor(b, r)
 		generateFunctions(b, r)
 	}
 	
 	def generateFunctions(Board board, Resource resource) {
+		for (exp : board.exps) {
+			if(exp instanceof ConditionalAction) {
+				genInternalConditionalAction(exp, board, resource)
+			} else if (exp instanceof FunctionCall) {
+				genInternalFunction(exp, board, resource)
+			}
+			
+		}
+		
 		for (server : resource.allContents.toIterable.filter(typeof(Server))) {
 			for (condaction : server.exps) {
 				genConditionalAction(board, resource, condaction, server)
 			} 				
 		} 		
+	}
+	
+	def genInternalConditionalAction(ConditionalAction action, Board board, Resource resource) {
+		throw new UnsupportedOperationException("TODO: auto-generated method stub")
+	}
+	
+	def genInternalFunction(FunctionCall call, Board board, Resource resource) {
+		var listofParams = new ArrayList<String>()
+		for	(param : call.function.parameters) {
+			System.out.println("isnull?")
+			System.out.println(param.value)
+			if (param.name !== null && !param.name.isEmpty) {
+				listofParams.add(param.name)
+			} else {
+				listofParams.add(param.value.toString)
+			}
+		}
+		
+		return '''«call.function.name»()'''
 	}
 	
 	def void genConditionalAction(Board board, Resource resource, ConditionalAction conAction, Server server) {
@@ -190,7 +218,8 @@ var externalFilesMap = new HashMap<String, URL>();
 	}
 	
 	def void genCondition(Board board, Resource resource, Condition condition, Server server) {
-		if(condition.nestedCondition !== null) {
+		
+		 if(condition.nestedCondition !== null) {
 			genCondition(board, resource, condition.nestedCondition, server)
 		}
 		if(condition.logicEx.compExp.left.outputfunction !== null) {
@@ -219,6 +248,7 @@ var externalFilesMap = new HashMap<String, URL>();
 				}
 			}
 		}
+		
 	}
 	
 	def getServerAddress(Connection conn) {
@@ -234,14 +264,8 @@ var externalFilesMap = new HashMap<String, URL>();
 		return adress
 	}
 	
-	def getPostAddress(Board board, Function function) {
-		/* TODO
-		if(function instanceof ModuleFunction) {
-			return '''/«board.name»/«function.moduleType.typeName»/«function.moduleType.name»/«function.functionName.name»/float/{}'''
-		} else {
-			return '''/«board.name»/«function.functionName.name»/float/{}'''
-		}
-		*/
+	def getPostAddress(Board board, FunctionCall function) {
+		return '''/«board.name»/«function.function.name»/float/{}'''
 	}
 	
 	def generateThresholdFunction(Board board, Resource resource, FunctionCall function, int i, String op, Server server) {	
@@ -337,133 +361,54 @@ var externalFilesMap = new HashMap<String, URL>();
 		*/
 	}
 	
-	def generatePycomSensor(Board b, Resource r) {
-		/* //TODO
-		for (sensor : b.boardMembers.filter(typeof(Sensor))) {
-			for (sensortype : sensor.sensorTypes.filter(typeof(SensorType))) {
-				if (!importcode.containsKey(sensortype.typeName)) {
-					importcode.put(sensortype.typeName, generateSensorImport(b, r, sensortype).toString())
-					codeMap.put(sensortype.name, generateSensorCode(b, r, sensortype))
-					
-				}
-			}
-		}
-		
-		*/
-	}
-	
-	def generateSensorCode(Board board, Resource resource, SensorType type) {
-		if(type.pins !== null) {
-			var power = type.pins.power.name
-			var input = type.pins.input.name
-			if(power !== null || input !== null) {
-				if(moduleMap.containsKey(type.typeName)) {
-					return '''«type.name»p_out = Pin('«power»', mode=Pin.OUT)
-					«type.name»adc = ADC(0)
-					«type.name»pin = «type.name»adc.channel(pin='«input»')
-					«type.name» = «moduleMap.get(type.typeName)»)'''
-				} else {
-					return '''
-					«type.name»p_out = Pin('«power»', mode=Pin.OUT)
-					«type.name»adc = ADC(0)
-					«type.name»pin = «type.name»adc.channel(pin='«input»')
-					«type.name» = #Unknown Sensor'''
-				}
-			}	
-		}
-		if(moduleMap.containsKey(type.typeName)) {
-			return '''«type.name» = «moduleMap.get(type.typeName)»()'''
-		} else {
-			return '''«type.name» = #Unknown Sensor'''
-		}
-	}
-	
-	def generateSensorImport(Board b, Resource r, SensorType sensorType) {			
-		if(moduleMap.containsKey(sensorType.typeName)) {
-			return '''from «moduleMap.get(sensorType.typeName)» import «moduleMap.get(sensorType.typeName)»'''
-		} else {
-			return '''import «sensorType.typeName» #CHECK THAT THIS SENSOR  IS GENERATED CORRECTLY'''
-		}		
-	}
-	
 	def generatePycomActuator(Board b, Resource r) {
-		/* TODO
-		for (actuator : b.boardMembers.filter(typeof(Actuator))) {
+		for (actuator : b.hardware.boardMembers.filter(typeof(Actuator))) {
 			for (actuatortype : actuator.actuatorTypes.filter(typeof(ActuatorType))) {
 				if (!importcode.containsKey(actuatortype.typeName)) {
-					importcode.put(actuatortype.typeName, generateActuatorImports(b, r, actuatortype).toString())
-					codeMap.put(actuatortype.name, generateActuatorCode(b, r, actuatortype))
+					importcode.put(actuatortype.typeName, generateModuleImport(b, r, actuatortype).toString())
+					codeMap.put(actuatortype.name, generateModuleCode(b, r, actuatortype))
 				}
 			}
 		}
-		*/
 	}
 	
-	def generateActuatorCode(Board board, Resource resource, ActuatorType type) {
+	def generatePycomSensor(Board b, Resource r) {
+		for (sensor : b.hardware.boardMembers.filter(typeof(Sensor))) {
+			for (sensortype : sensor.sensorTypes.filter(typeof(SensorType))) {
+				if (!importcode.containsKey(sensortype.typeName)) {
+					importcode.put(sensortype.typeName, generateModuleImport(b, r, sensortype).toString())
+					codeMap.put(sensortype.name, generateModuleCode(b, r, sensortype))
+				}
+			}
+		}
+	}
+	
+	def generateModuleCode(Board board, Resource resource, ModuleType type) {
 		if(type.pins !== null) {
 			var power = type.pins.power.name
 			var input = type.pins.input.name
 			if(power !== null || input !== null) {
-				if(moduleMap.containsKey(type.typeName)) {
-					return '''
-					«type.name»p_out = Pin('«power»', mode=Pin.OUT)
-					«type.name»adc = ADC(0)
-					«type.name»pin = «type.name»adc.channel(pin='«input»')
-					«type.name» = «moduleMap.get(type.typeName)»)'''
+				if(type.filename !== null && !type.filename.name.empty) {
+					return '''«type.name» = «type.filename.name»(machine, «power», «input»)'''
 				} else {
-					return '''
-					«type.name»p_out = Pin('«power»', mode=Pin.OUT)
-					«type.name»adc = ADC(0)
-					«type.name»pin = «type.name»adc.channel(pin='«input»')
-					«type.name» = #Unknown Sensor'''
+					return ''' #Unknown Module «type.name» with inputpin: «input» and powerpin: «power»'''
 				}
 			}	
 		}
-		if(moduleMap.containsKey(type.typeName)) {
-			return '''«type.name» = «moduleMap.get(type.typeName)»()'''
+		if(type.filename !== null && !type.filename.name.empty) {
+			return '''«type.name» = «type.filename.name»()'''
 		} else {
-			return '''«type.name» = #Unknown Actuator'''
+			return null
 		}
 	}
 	
-	def generateActuatorImports(Board b, Resource r, ActuatorType actuatorType) {	
-		if(moduleMap.containsKey(actuatorType.typeName)) {
-			return '''from «moduleMap.get(actuatorType.typeName)» import «moduleMap.get(actuatorType.typeName)»'''
-		} else {
-			return '''import «actuatorType.typeName»  #CHECK THAT THIS ACTUATOR IS GENERATED CORRECTLY'''
+	def generateModuleImport(Board b, Resource r, ModuleType type) {			
+		if(type.filename !== null && !type.filename.name.empty) {
+			return '''from «type.filename.name» import «type.filename.name» '''	
 		}
-	}
-	
-	def generatePycomConnection(Board b, Resource r) {
-		/* TODO
-		for (a : b.boardMembers.filter(Communication)) {
-			if (!importcode.containsKey(a.type)) {
-				if (a.type.equals("WiFi")) {
-		    		importcode.put(a.type, generatePycomWifiImport(b, r).toString)
-		    		codeMap.put(a.type, generatePycomWifiCode(b, r).toString)
-			    } else {
-			    	importcode.put(a.type, "#Not Supported Communication-type: " + a.type) //Default case for unsupported BlueThooth|SigFox
-			    	var s = '''
-			    				#***«a.type» SETUP***
-			    		
-			    				#Unsupported Communication, write your own code
-			    		
-			    				#***«a.type» SETUP END***
-			    			'''
-			    	codeMap.put(a.type, s)
-			    }
-			}
-		}
-		*/
+		return null;		
 	}
 
-	def generatePycomWifiImport(Board b, Resource r) {	
-		'''
-			from network import WLAN
-			
-		'''
-	}
-	
 	def generatePycomWifiCode(Board b, Resource r) {
 		'''
 			#***WIFI SETUP***

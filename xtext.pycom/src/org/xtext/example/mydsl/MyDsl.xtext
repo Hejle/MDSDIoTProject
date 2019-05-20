@@ -13,7 +13,7 @@ Function:
 ;
 
 FunctionDefinitions:
-	name=ID '(' parameters+=ParameterString? (',' parameters+=ParameterString)* ')' 'as' externalFunction=ExternalFunction
+	name=ID '(' parameters+=ParameterType? (',' parameters+=ParameterType)* ')' 'as' externalFunction=ExternalFunction
 ;
 
 ExternalFunction:
@@ -25,11 +25,7 @@ Filename:
 ;
 
 ParameterType:
-	value=INT | ParameterString
-;
-
-ParameterString:
-	name=ID
+	value=INT | name=ID
 ;
 
 FunctionCall:
@@ -79,10 +75,10 @@ Communication:
 	'Communication' ':' type=('WiFi' | 'Bluetooth' | 'SigFox');
 
 ActuatorType returns ModuleType:
-	{ActuatorType} typeName=ActuatorName ':' name=ID ('(' pins=Pin ')')?;
+	{ActuatorType} typeName=ActuatorName ':' name=ID ('(' pins=Pin ')')? ( 'as' filename=Filename)?;
 
 SensorType returns ModuleType:
-	{SensorType} typeName=SensorName ':' name=ID ('(' pins=Pin ')')?;
+	{SensorType} typeName=SensorName ':' name=ID ('(' pins=Pin ')')? ( 'as' filename=Filename)?;
 
 SensorName:
 	'Light' | 'Temperature' | 'Barometer' | 'Humidity' | 'Accelerometer';
