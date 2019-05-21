@@ -56,7 +56,7 @@ Board:
 	'Board' name=ID 'implements' hardware=[Hardware] '{' exps+=ExpMember* '}';
 
 BoardMember:
-	Sensor | Actuator | Communication;
+	Sensor | Actuator;
 
 ConditionalAction:
 	type='if' '(' condition=Condition ')' '{' ExpMembers+=ExpMember* '}'
@@ -66,22 +66,14 @@ ExpMember:
 	FunctionCall | ConditionalAction;
 
 Sensor:
-	'Sensor' sensorTypes+=SensorType (',' sensorTypes+=SensorType)*;
+	'Sensor' sensorTypes+=ModuleType (',' sensorTypes+=ModuleType)*;
 
 Actuator:
-	'Actuator' actuatorTypes+=ActuatorType (',' actuatorTypes+=ActuatorType)*;
-
-Communication:
-	'Communication' ':' type=('WiFi' | 'Bluetooth' | 'SigFox');
-
-ActuatorType returns ModuleType:
-	{ActuatorType} typeName=ActuatorName ':' name=ID ('(' pins=Pin ')')? ( 'as' filename=Filename)?;
-
-SensorType returns ModuleType:
-	{SensorType} typeName=SensorName ':' name=ID ('(' pins=Pin ')')? ( 'as' filename=Filename)?;
-
-SensorName:
-	'Light' | 'Temperature' | 'Barometer' | 'Humidity' | 'Accelerometer';
+	'Actuator' actuatorTypes+=ModuleType (',' actuatorTypes+=ModuleType)*;
+	
+ModuleType:
+	typeName=ModuleName ':' name=ID ('(' pins=Pin ')')? ( 'as' filename=Filename)?
+;
 
 Pin:
 	power=PinName ',' input=PinName;
@@ -90,8 +82,9 @@ PinName:
 	name=ID
 ;
 
-ActuatorName:
-	'LED' | 'Engine';
+ModuleName:
+	name=ID
+;
 
 Condition:
 	logicEx=LogicExp | logicEx=LogicExp operator='&&' nestedCondition=Condition | logicEx=LogicExp operator='||' nestedCondition=Condition;
@@ -111,21 +104,5 @@ Expression:
 ;
 
 Operator:
-	'<' | '<=' | '==' | '>=' | '>' | '!=';
-	
-Number: 
-	INT
+	'<' | '<=' | '==' | '>=' | '>' | '!='
 ;
-/*	
-Function: 
-	ModuleFunction | board=[Board] '.' functionName=FunctionName
-;
-	
-ModuleFunction: 
-	board=[Board] '.' moduleType=[ModuleType] '.' functionName=FunctionName
-;
-	
-FunctionName:
-	name=ID
-;
-*/

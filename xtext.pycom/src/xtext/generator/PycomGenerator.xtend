@@ -3,36 +3,24 @@
  */
 package xtext.generator
 
+import java.util.ArrayList
+import java.util.HashMap
+import java.util.List
 import org.eclipse.emf.ecore.resource.Resource
 import org.eclipse.xtext.generator.AbstractGenerator
 import org.eclipse.xtext.generator.IFileSystemAccess2
 import org.eclipse.xtext.generator.IGeneratorContext
-import xtext.pycom.Board
-import xtext.pycom.Server
-import xtext.pycom.Communication
 import xtext.pycom.Actuator
-import java.util.HashMap
-import xtext.pycom.ActuatorType
-import java.io.BufferedInputStream
-import java.net.URL
-import java.nio.file.Paths
-import java.io.IOException
-import xtext.pycom.Sensor
-import xtext.pycom.SensorType
-import xtext.pycom.ConditionalAction
+import xtext.pycom.Board
+import xtext.pycom.ComparisonExp
 import xtext.pycom.Condition
-import xtext.pycom.Function
-import xtext.pycom.Expression
-import javax.swing.JOptionPane
-import java.util.List
-import xtext.pycom.ExpMember
+import xtext.pycom.ConditionalAction
 import xtext.pycom.Connection
-import xtext.pycom.ParameterType
-import java.util.ArrayList
+import xtext.pycom.ExpMember
 import xtext.pycom.FunctionCall
 import xtext.pycom.ModuleType
-import xtext.pycom.ComparisonExp
-import xtext.pycom.LogicExp
+import xtext.pycom.Sensor
+import xtext.pycom.Server
 
 /**
  * Generates code from your model files on save.
@@ -70,6 +58,18 @@ class PycomGenerator extends AbstractGenerator {
 		for (server : resource.allContents.toIterable.filter(typeof(Server))) {
 			fsa.generateFile(server.name + ".js", generateServerFiles(server, resource))			
 		} 			
+	}
+	
+	def genDepth(int depth) {
+		return stringMultiply("\t", depth)
+	}
+	
+	def stringMultiply(String s, int n){
+    	var sb = new StringBuilder()
+    	for(var i = 0; i < n; i++) {
+       		sb.append(s);
+    	}
+    	return sb.toString();
 	}
 	
 	def oppositeOP(String op) {
@@ -196,28 +196,18 @@ class PycomGenerator extends AbstractGenerator {
 				genConditionalAction(board, resource, condaction, server)
 			} 				
 		} 	
-		System.out.println("Internal Code")
-		System.out.println(sb.toString)
-		//logicmap.put("a", sb.toString)
+		val stringBuilder = new StringBuilder();
+		stringBuilder.append("\n")
+		logicmap.forEach[k, v| {
+			stringBuilder.append(v + "\n")
+		}]
+		stringBuilder.append("\n")
+		sb.append(stringBuilder.toString)
 		return sb.toString()	
 	}
 	
-	def genDepth(int depth) {
-		return stringMultiply("\t", depth)
-	}
-	
-	def stringMultiply(String s, int n){
-    	var sb = new StringBuilder()
-    	for(var i = 0; i < n; i++) {
-       		sb.append(s);
-    	}
-    	return sb.toString();
-	}
-	
 	def String genInternalConditionalAction(ConditionalAction action, Board board, Resource resource, int depth) {
-		var String str
 		var exp = genPycomCondition(action.condition)
-		
 		var s = '''
 		«genDepth(depth)»if «exp»:
 		«genInternalConditionBody(action, board, resource, depth+1)»
@@ -294,7 +284,7 @@ class PycomGenerator extends AbstractGenerator {
 		for (exp : conAction.expMembers) {
 			if(exp instanceof ConditionalAction) {
 				genConditionalAction(board, resource, exp, server)
-			} else if(exp instanceof Function) {
+			} else if(exp instanceof FunctionCall) {
 				genFunction(board, resource, exp, server)
 			}
 		}
@@ -352,79 +342,54 @@ class PycomGenerator extends AbstractGenerator {
 	}
 	
 	def generateThresholdFunction(Board board, Resource resource, FunctionCall function, int i, String op, Server server) {	
-		/*
+		
 		var postaddress = getPostAddress(board, function)
+		var functioncall = genInternalFunction(function)
 		var threshold = '''
-		var passedTreshold = False
-		«function.functionName.name»Threshold = «i»
-		«function.functionName.name»Value = «function.functionName.name»()
-		if («function.functionName.name»Value «op» «function.functionName.name»Threshold and not passedTreshold):
+		passedTreshold = False
+		«function.function.name»Threshold = «i»
+		«function.function.name»Value = «functioncall»
+		if («function.function.name»Value «op» «function.function.name»Threshold and not passedTreshold):
 			passedTreshold = not passedTreshold
-			sendurl = "«getServerAddress(server.conn)»«postaddress»".format(«function.functionName.name»Value)
+			sendurl = "«getServerAddress(server.conn)»«postaddress»".format(«function.function.name»Value)
 			res = urequests.post(sendurl)   
 			print("Res code: ", res.status_code)
 			print("Res: ", res.reason)
-		if («function.functionName.name»Value «oppositeOP(op)» «function.functionName.name»Threshold and passedTreshold):
+		if («function.function.name»Value «oppositeOP(op)» «function.function.name»Threshold and passedTreshold):
 			passedTreshold = not passedTreshold
-			sendurl = "«getServerAddress(server.conn)»«postaddress»".format(«function.functionName.name»Value)
+			sendurl = "«getServerAddress(server.conn)»«postaddress»".format(«function.function.name»Value)
 			res = urequests.post(sendurl)   
 			print("Res code: ", res.status_code)
 			print("Res: ", res.reason)
 		'''				
-		var funk = 
-		'''
-		def «function.functionName.name»():
-			#Write your code here		
-		'''
-		logicmap.put(function.functionName.name, threshold)
-		functionmap.put(function.functionName.name, funk)
-		*/
+		
+		logicmap.put(function.function.name, threshold)
 	}
 	
 	def generateDoubleFunction(Board board, Resource resource, FunctionCall function, FunctionCall function2, String op, Server server) {
-		/* TODO
 		var postaddress = getPostAddress(board, function)
 		var transmitcode = '''
-		«function.functionName.name»Value = «function.functionName.name»()
-		«function2.functionName.name»Value = «function2.functionName.name»()
-		if («function.functionName.name»Value «op» «function2.functionName.name»Value):
+		«function.function.name»Value = «function.function.name»()
+		«function2.function.name»Value = «function2.function.name»()
+		if («function.function.name»Value «op» «function2.function.name»Value):
 			sendurl = "«getServerAddress(server.conn)»«postaddress»".format(True)
 			res = urequests.post(sendurl)   
 			print("Res code: ", res.status_code)
 			print("Res: ", res.reason)
-		if («function.functionName.name»Value «oppositeOP(op)» «function2.functionName.name»Value):
+		if («function.function.name»Value «oppositeOP(op)» «function2.function.name»Value):
 			sendurl = "«getServerAddress(server.conn)»«postaddress»".format(false)
 			res = urequests.post(sendurl)   
 			print("Res code: ", res.status_code)
 			print("Res: ", res.reason)
 		'''
-		var funk = '''
-		def «function.functionName.name»():
-			#Write your code here		
-		'''
-		
-		
-		var funk2 = '''
-		def «function2.functionName.name»():
-			#Write your code here	
-		'''
-		logicmap.put(function.functionName.name, transmitcode)
-		functionmap.put(function.functionName.name, funk)
-		functionmap.put(function.functionName.name, funk2)
-		*/
+
+		logicmap.put(function.function.name, transmitcode)
 	}
 	
-	def genFunction(Board board, Resource resource, Function function, Server server) {
-		/* TODO
-		if(function.board.equals(board)) {
+	def genFunction(Board board, Resource resource, FunctionCall functioncall, Server server) {
+		if(functioncall.board.equals(board)) {
 			var address = getServerAddress(server.conn)
-			var String sendUrl;
-			var String functionname
-			if(function instanceof ModuleFunction) {
-				sendUrl = '''sendurl = "«address»/«board.name»/«function.moduleType.typeName»/«function.moduleType.name»/«function.functionName.name»/turnOn'''
-			} else {
-				sendUrl = '''sendurl = "«address»/«board.name»/«function.functionName.name»/turnOn'''
-			}
+			var String sendUrl = '''sendurl = "«address»/«board.name»/«functioncall.function.name»/turnOn'''
 			var getCode='''
 			«sendUrl»
 			urequests.get(sendurl) 
@@ -432,24 +397,24 @@ class PycomGenerator extends AbstractGenerator {
 			    print('sending')
 			    print("Res code: ", res.status_code)
 			    print("Response: " + response)
-			    «function.functionName.name»(response)
+			    «functioncall.function.name»(response)
 			'''
-			logicmap.put(function.functionName.name, getCode)
-			var funk = '''
-			def «function.functionName.name»(serverResponse):
-				#Write your code here	
-			'''
-			functionmap.put(function.functionName.name, funk)
+			logicmap.put(functioncall.function.name, getCode)
 		}
-		*/
 	}
 	
 	def generatePycomActuator(Board b, Resource r) {
 		for (actuator : b.hardware.boardMembers.filter(typeof(Actuator))) {
-			for (actuatortype : actuator.actuatorTypes.filter(typeof(ActuatorType))) {
+			for (actuatortype : actuator.actuatorTypes.filter(typeof(ModuleType))) {
 				if (!importcode.containsKey(actuatortype.typeName)) {
-					importcode.put(actuatortype.typeName, generateModuleImport(b, r, actuatortype))
-					codeMap.put(actuatortype.name, generateModuleCode(b, r, actuatortype))
+					var import = generateModuleImport(b, r, actuatortype)
+					var code = generateModuleCode(b, r, actuatortype)
+					if(import !== null) {
+						importcode.put(actuatortype.typeName.name, import)
+					}
+					if (code !== null) {
+						codeMap.put(actuatortype.name, code)
+					}
 				}
 			}
 		}
@@ -457,16 +422,22 @@ class PycomGenerator extends AbstractGenerator {
 	
 	def generatePycomSensor(Board b, Resource r) {
 		for (sensor : b.hardware.boardMembers.filter(typeof(Sensor))) {
-			for (sensortype : sensor.sensorTypes.filter(typeof(SensorType))) {
+			for (sensortype : sensor.sensorTypes.filter(typeof(ModuleType))) {
 				if (!importcode.containsKey(sensortype.typeName)) {
-					importcode.put(sensortype.typeName, generateModuleImport(b, r, sensortype))
-					codeMap.put(sensortype.name, generateModuleCode(b, r, sensortype))
+					var import = generateModuleImport(b, r, sensortype)
+					var code = generateModuleCode(b, r, sensortype)
+					if(import !== null) {
+						importcode.put(sensortype.typeName.name, import)
+					}
+					if (code !== null) {
+						codeMap.put(sensortype.name, code)
+					}
 				}
 			}
 		}
 	}
 	
-	def generateModuleCode(Board board, Resource resource, ModuleType type) {
+	def String generateModuleCode(Board board, Resource resource, ModuleType type) {
 		if(type.pins !== null) {
 			var power = type.pins.power.name
 			var input = type.pins.input.name
@@ -474,7 +445,7 @@ class PycomGenerator extends AbstractGenerator {
 				if(type.filename !== null && !type.filename.name.empty) {
 					return '''«type.name» = «type.filename.name»(machine, «power», «input»)'''
 				} else {
-					return ''' #Unknown Module «type.name» with inputpin: «input» and powerpin: «power»'''
+					return '''#Unknown Module «type.name» with inputpin: «input» and powerpin: «power»'''
 				}
 			}	
 		}
@@ -485,7 +456,7 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 	
-	def generateModuleImport(Board b, Resource r, ModuleType type) {			
+	def String generateModuleImport(Board b, Resource r, ModuleType type) {			
 		if(type.filename !== null && !type.filename.name.empty) {
 			return '''from «type.filename.name» import «type.filename.name» '''	
 		}
