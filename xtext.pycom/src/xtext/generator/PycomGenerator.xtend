@@ -31,6 +31,8 @@ import xtext.pycom.ParameterType
 import java.util.ArrayList
 import xtext.pycom.FunctionCall
 import xtext.pycom.ModuleType
+import xtext.pycom.ComparisonExp
+import xtext.pycom.LogicExp
 
 /**
  * Generates code from your model files on save.
@@ -104,7 +106,6 @@ class PycomGenerator extends AbstractGenerator {
 	
 	def generatePycomFiles(Board b, Resource r, IFileSystemAccess2 fsa) {
 		generatePycom(b, r)
-		
 		'''
 		import pycom
 		import urequests
@@ -171,39 +172,114 @@ class PycomGenerator extends AbstractGenerator {
 	}
 	
 	def generateFunctions(Board board, Resource resource) {
+		val sb = new StringBuilder();
 		for (exp : board.exps) {
 			if(exp instanceof ConditionalAction) {
-				genInternalConditionalAction(exp, board, resource)
+				sb.append(genInternalConditionalAction(exp, board, resource, 1))
 			} else if (exp instanceof FunctionCall) {
-				genInternalFunction(exp, board, resource)
+				System.out.println("Internal Function")
+				System.out.println(genInternalFunction(exp, board, resource))
+				sb.append(genInternalFunction(exp, board, resource))
+				System.out.println(sb.toString)
 			}
-			
+			sb.append("\n")	
+			System.out.println(sb.toString)
 		}
-		
 		for (server : resource.allContents.toIterable.filter(typeof(Server))) {
 			for (condaction : server.exps) {
 				genConditionalAction(board, resource, condaction, server)
 			} 				
-		} 		
+		} 	
+		System.out.println("Internal Code")
+		System.out.println(sb.toString)
+		logicmap.put("a", sb.toString)	
 	}
 	
-	def genInternalConditionalAction(ConditionalAction action, Board board, Resource resource) {
-		throw new UnsupportedOperationException("TODO: auto-generated method stub")
+	def genDepth(int depth) {
+		return stringMultiply("\t", depth)
 	}
+	
+	def stringMultiply(String s, int n){
+    	var sb = new StringBuilder()
+    	for(var i = 0; i < n; i++) {
+       		sb.append(s);
+    	}
+    	return sb.toString();
+	}
+	
+	def genInternalConditionalAction(ConditionalAction action, Board board, Resource resource, int depth) {
+		var String str
+		var exp = genPycomCondition(action.condition)
+		
+		var s = '''
+		«genDepth(depth)»if «exp»:
+		«genInternalConditionBody(action, board, resource, depth+1)»
+		'''
+		return s
+	}
+	
+	def genPycomCondition(Condition condition) {
+		var String str
+		if (condition.logicEx.boolVal !== null) {
+			str = condition.logicEx.boolVal.value
+		} else {
+			var compa = condition.logicEx.compExp				
+			str = getLeftCompExp(compa) + " " + compa.op + " " getRightCompExp(compa)
+		}
+		if(condition.nestedCondition !== null) {
+			return str + genPycomCondition(condition)
+		} else {
+			return str
+		}
+	}
+	
+	def genInternalConditionBody(ConditionalAction action, Board board, Resource resource, int depth) {
+		var String s
+		for (exp : action.expMembers) {
+			if(exp instanceof ConditionalAction) {
+				s += genDepth(depth) + genInternalConditionalAction(action, board, resource, depth)
+			} else if(exp instanceof FunctionCall) {
+				s += genDepth(depth) + genInternalFunction(exp, board, resource)
+			}
+			s += "\n"
+		}
+		return ""
+	}
+	
+	def getLeftCompExp(ComparisonExp exp) {
+		if(exp.left.outputfunction !== null) {
+			return genInternalFunction(exp.left.outputfunction, null, null)
+		} else {
+			return exp.left.outputValue.toString
+		}
+	}
+	
+	def getRightCompExp(ComparisonExp exp) {
+		if(exp.right.outputfunction !== null) {
+			return genInternalFunction(exp.right.outputfunction, null, null)
+		} else {
+			return exp.right.outputValue
+		}
+	}
+	
 	
 	def genInternalFunction(FunctionCall call, Board board, Resource resource) {
-		var listofParams = new ArrayList<String>()
-		for	(param : call.function.parameters) {
-			System.out.println("isnull?")
-			System.out.println(param.value)
+		System.out.println("genInternalFunction?")
+		var String parameterString
+		for	(param : call.parameters) {
 			if (param.name !== null && !param.name.isEmpty) {
-				listofParams.add(param.name)
+				parameterString += param.name + ', '
 			} else {
-				listofParams.add(param.value.toString)
+				parameterString += param.value + ', '
 			}
+		}
+		if(parameterString !== null && !parameterString.empty) {
+			parameterString = parameterString.substring(0, parameterString.length - 1)
+			return '''«call.function.name»(«parameterString»)'''
 		}
 		
 		return '''«call.function.name»()'''
+		
 	}
 	
 	def void genConditionalAction(Board board, Resource resource, ConditionalAction conAction, Server server) {
@@ -365,7 +441,7 @@ class PycomGenerator extends AbstractGenerator {
 		for (actuator : b.hardware.boardMembers.filter(typeof(Actuator))) {
 			for (actuatortype : actuator.actuatorTypes.filter(typeof(ActuatorType))) {
 				if (!importcode.containsKey(actuatortype.typeName)) {
-					importcode.put(actuatortype.typeName, generateModuleImport(b, r, actuatortype).toString())
+					importcode.put(actuatortype.typeName, generateModuleImport(b, r, actuatortype))
 					codeMap.put(actuatortype.name, generateModuleCode(b, r, actuatortype))
 				}
 			}
@@ -376,7 +452,7 @@ class PycomGenerator extends AbstractGenerator {
 		for (sensor : b.hardware.boardMembers.filter(typeof(Sensor))) {
 			for (sensortype : sensor.sensorTypes.filter(typeof(SensorType))) {
 				if (!importcode.containsKey(sensortype.typeName)) {
-					importcode.put(sensortype.typeName, generateModuleImport(b, r, sensortype).toString())
+					importcode.put(sensortype.typeName, generateModuleImport(b, r, sensortype))
 					codeMap.put(sensortype.name, generateModuleCode(b, r, sensortype))
 				}
 			}
