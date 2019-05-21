@@ -93,6 +93,16 @@ class PycomGenerator extends AbstractGenerator {
 		}	
 	}
 	
+	def operatorToPython(String op) {
+		if(op.equals("||")) {
+			return "or"
+		}
+		if(op.equals("&&")) {
+			return "and"
+		}
+		return op
+	}
+	
 	//def populateHashmap() {
 	//	externalFilesMap.put("Temperature", new URL("https://raw.githubusercontent.com/pycom/pycom-libraries/master/pysense/lib/SI7006A20.py"))
 	//	moduleMap.put("Temperature", "SI7006A20")
@@ -121,7 +131,7 @@ class PycomGenerator extends AbstractGenerator {
 			
 		«genFunctions(b, r)»
 		while(isRunning):
-			«generateLogic(b, r)»
+			«generateFunctions(b, r)»
 		#CODE GENERATION END
 		'''
 	}
@@ -168,22 +178,18 @@ class PycomGenerator extends AbstractGenerator {
 		functionmap = new HashMap<String, String>();
 		generatePycomActuator(b, r)
 		generatePycomSensor(b, r)
-		generateFunctions(b, r)
+		//generateFunctions(b, r)
 	}
 	
 	def generateFunctions(Board board, Resource resource) {
 		val sb = new StringBuilder();
 		for (exp : board.exps) {
 			if(exp instanceof ConditionalAction) {
-				sb.append(genInternalConditionalAction(exp, board, resource, 1))
+				sb.append(genInternalConditionalAction(exp, board, resource, 0))
 			} else if (exp instanceof FunctionCall) {
-				System.out.println("Internal Function")
-				System.out.println(genInternalFunction(exp, board, resource))
-				sb.append(genInternalFunction(exp, board, resource))
-				System.out.println(sb.toString)
+				sb.append(genInternalFunction(exp))
 			}
 			sb.append("\n")	
-			System.out.println(sb.toString)
 		}
 		for (server : resource.allContents.toIterable.filter(typeof(Server))) {
 			for (condaction : server.exps) {
@@ -192,7 +198,8 @@ class PycomGenerator extends AbstractGenerator {
 		} 	
 		System.out.println("Internal Code")
 		System.out.println(sb.toString)
-		logicmap.put("a", sb.toString)	
+		//logicmap.put("a", sb.toString)
+		return sb.toString()	
 	}
 	
 	def genDepth(int depth) {
@@ -207,7 +214,7 @@ class PycomGenerator extends AbstractGenerator {
     	return sb.toString();
 	}
 	
-	def genInternalConditionalAction(ConditionalAction action, Board board, Resource resource, int depth) {
+	def String genInternalConditionalAction(ConditionalAction action, Board board, Resource resource, int depth) {
 		var String str
 		var exp = genPycomCondition(action.condition)
 		
@@ -218,37 +225,40 @@ class PycomGenerator extends AbstractGenerator {
 		return s
 	}
 	
-	def genPycomCondition(Condition condition) {
-		var String str
+	def String genPycomCondition(Condition condition) {
+		var sb = new StringBuilder()
 		if (condition.logicEx.boolVal !== null) {
-			str = condition.logicEx.boolVal.value
+			sb.append(condition.logicEx.boolVal.value)
 		} else {
 			var compa = condition.logicEx.compExp				
-			str = getLeftCompExp(compa) + " " + compa.op + " " getRightCompExp(compa)
+			sb.append(getLeftCompExp(compa) + " " + compa.op + " " + getRightCompExp(compa))
 		}
 		if(condition.nestedCondition !== null) {
-			return str + genPycomCondition(condition)
+			sb.append(" ")
+			sb.append(operatorToPython(condition.operator))
+			sb.append(" ")
+			return sb.append(genPycomCondition(condition.nestedCondition)).toString
 		} else {
-			return str
+			return sb.toString
 		}
 	}
 	
 	def genInternalConditionBody(ConditionalAction action, Board board, Resource resource, int depth) {
-		var String s
+		var sb = new StringBuilder()
 		for (exp : action.expMembers) {
 			if(exp instanceof ConditionalAction) {
-				s += genDepth(depth) + genInternalConditionalAction(action, board, resource, depth)
+				sb.append(genInternalConditionalAction(exp, board, resource, depth))
 			} else if(exp instanceof FunctionCall) {
-				s += genDepth(depth) + genInternalFunction(exp, board, resource)
+				sb.append(genDepth(depth) + genInternalFunction(exp))
 			}
-			s += "\n"
+			sb.append("\n")
 		}
-		return ""
+		return sb.toString
 	}
 	
 	def getLeftCompExp(ComparisonExp exp) {
 		if(exp.left.outputfunction !== null) {
-			return genInternalFunction(exp.left.outputfunction, null, null)
+			return genInternalFunction(exp.left.outputfunction)
 		} else {
 			return exp.left.outputValue.toString
 		}
@@ -256,30 +266,27 @@ class PycomGenerator extends AbstractGenerator {
 	
 	def getRightCompExp(ComparisonExp exp) {
 		if(exp.right.outputfunction !== null) {
-			return genInternalFunction(exp.right.outputfunction, null, null)
+			return genInternalFunction(exp.right.outputfunction)
 		} else {
-			return exp.right.outputValue
+			return exp.right.outputValue.toString
 		}
 	}
 	
 	
-	def genInternalFunction(FunctionCall call, Board board, Resource resource) {
-		System.out.println("genInternalFunction?")
-		var String parameterString
+	def genInternalFunction(FunctionCall call) {
+		var sb = new StringBuilder()
 		for	(param : call.parameters) {
 			if (param.name !== null && !param.name.isEmpty) {
-				parameterString += param.name + ', '
+				sb.append(param.name + ', ')
 			} else {
-				parameterString += param.value + ', '
+				sb.append(param.value + ', ')
 			}
 		}
-		if(parameterString !== null && !parameterString.empty) {
-			parameterString = parameterString.substring(0, parameterString.length - 1)
-			return '''«call.function.name»(«parameterString»)'''
+		if(sb.toString !== null && !sb.toString.empty) {
+			var str = sb.toString.substring(0, sb.length - 2)
+			return '''«call.function.name»(«str»)'''
 		}
-		
 		return '''«call.function.name»()'''
-		
 	}
 	
 	def void genConditionalAction(Board board, Resource resource, ConditionalAction conAction, Server server) {
