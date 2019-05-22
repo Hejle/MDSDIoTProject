@@ -123,7 +123,7 @@ class PycomGenerator extends AbstractGenerator {
 		import time 
 		#New code
 		«generatePycomImports(b, r, fsa)»
-		
+		«generateImports(b, r)»
 		isRunning = True
 		pycom.heartbeat(False)
 			
@@ -437,18 +437,17 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 	
-	def String generateModuleCode(Board board, Resource resource, ModuleType type) {
-		if(type.pins !== null) {
-			var power = type.pins.power.name
-			var input = type.pins.input.name
-			if(power !== null || input !== null) {
-				if(type.filename !== null && !type.filename.name.empty) {
-					return '''«type.name» = «type.filename.name»(machine, «power», «input»)'''
-				} else {
-					return '''#Unknown Module «type.name» with inputpin: «input» and powerpin: «power»'''
-				}
-			}	
+	def generateImports(Board b, Resource r) {
+		var sb = new StringBuilder()
+		for (imp : b.hardware.imports) {
+			for (impfiles : imp.importfiles) {
+				sb.append('''from «impfiles.name» import «impfiles.name»''')
+				sb.append("\n")
+			}
 		}
+	}
+	
+	def String generateModuleCode(Board board, Resource resource, ModuleType type) {
 		if(type.filename !== null && !type.filename.name.empty) {
 			return '''«type.name» = «type.filename.name»()'''
 		} else {

@@ -5,7 +5,15 @@ System:
 	hardware+=Hardware* boards+=Board* servers+=Server*;
 
 Hardware:
-	'Hardware' name=ID '{' boardMembers+=BoardMember*  function=Function? '}'
+	'Hardware' name=ID '{' boardMembers+=BoardMember* imports+=Imports*  function=Function? '}'
+;
+
+Imports:
+	'Import' importfiles+=ImportFile (',' importfiles+=ImportFile)*
+;
+
+ImportFile:
+	name=ID 
 ;
 
 Function:
