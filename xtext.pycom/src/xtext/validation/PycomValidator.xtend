@@ -3,6 +3,15 @@
  */
 package xtext.validation
 
+import org.eclipse.xtext.validation.Check
+import java.util.HashSet
+import xtext.pycom.PycomPackage
+import xtext.pycom.Board
+import xtext.pycom.FunctionCall
+import org.eclipse.xtext.EcoreUtil2
+import xtext.pycom.Connection
+import java.util.Arrays
+import java.util.regex.Pattern
 
 /**
  * This class contains custom validation rules. 
@@ -21,5 +30,91 @@ class PycomValidator extends AbstractPycomValidator {
 //					INVALID_NAME)
 //		}
 //	}
+	
+	val IPv4_REGEX =
+			"^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$";
+
+	val IPv4_PATTERN = Pattern.compile(IPv4_REGEX)
+	
+	@Check
+	def CheckBoardName(xtext.pycom.System system) {
+		var boardNames  = new HashSet<String>()
+		for(board: system.boards) {
+			if(!boardNames.contains(board.name)) {
+				boardNames.add(board.name)
+			}else{
+				error('The name of a board must be unique', board, PycomPackage.Literals.BOARD__NAME)
+			}
+		}
+	}
+	
+	@Check
+	def CheckParameters(FunctionCall function) {
+		if(function.function !== null && function.function.name !== null) {
+			if(function.parameters.length != function.function.parameters.length) {
+				if(function.parameters.length > function.function.parameters.length) {
+					var correntamount = function.function.parameters.length
+					error('Too many parameters! There should only be ' + correntamount + ' parameters in ' + function.function.name, function, PycomPackage.Literals.FUNCTION_CALL__PARAMETERS)
+				} else {
+					var correntamount = function.function.parameters.length
+					error('Too few parameters! There should be ' + correntamount + ' parameters in ' + function.function.name, function, PycomPackage.Literals.FUNCTION_CALL__PARAMETERS)
+				}
+			}
+		}
+	}
+	
+	@Check
+	def portnumberWithinRange(Connection connection) {
+		if(!connection.portnumber.isNullOrEmpty) {
+			try {
+				var port = Integer.parseInt((connection.portnumber))
+				if (port < 0) {
+					error('Port number should not be negative', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')		
+				}
+				if (port > 65535) {
+					error('Port number should be less than 65535', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')		
+				}
+				if (port <= 1024) {
+					warning('It is recommended to not use ports in the range of 1 - 1024', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')		
+				}
+			} catch (NumberFormatException e) {
+				error('Ports should be a number', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')
+			}
+		}
+	}
+	
+	@Check
+	def checkHost(Connection connection) {
+		if(!connection.host.ipAdr.isNullOrEmpty) {
+			if(!validIPAddress(connection.host.ipAdr)) {
+				error('Invalid IP-Address', PycomPackage.Literals.CONNECTION__HOST, 'invalid ip')			
+			}
+		}
+	}
+	
+	/**
+	 * IP-Validator taken from https://www.techiedelight.com/validate-ip-address-java/
+	 */
+	def validIPAddress(String ip) {
+		if (ip === null) {
+			return false;
+		}
+		if (!IPv4_PATTERN.matcher(ip).matches()) {
+			return false;
+		}
+			var parts = ip.split("\\.");
+		try {
+			for (String segment: parts) {
+
+				if (Integer.parseInt(segment) > 255 ||
+						    (segment.length() > 1 && segment.startsWith("0"))) {
+					return false;
+				}
+			}
+		} catch(NumberFormatException e) {
+			return false;
+		}
+		return true;
+	}
 	
 }

@@ -30,10 +30,12 @@ class PycomScopeProvider extends AbstractPycomScopeProvider {
 				board = EcoreUtil2.getContainerOfType(context, Board) as Board	
 			} else {
 				return super.getScope(context, reference);
-			}		
-			var hardware = board.hardware.function
-			var candidates = EcoreUtil2.getAllContentsOfType(hardware, FunctionDefinitions)	
-			return Scopes.scopeFor(candidates);
+			}	
+			if(board.hardware !== null && board.hardware.function !== null)	{
+				var hardware = board.hardware.function
+				var candidates = EcoreUtil2.getAllContentsOfType(hardware, FunctionDefinitions)	
+				return Scopes.scopeFor(candidates);
+			}
 		}
 		return super.getScope(context, reference)
 		
