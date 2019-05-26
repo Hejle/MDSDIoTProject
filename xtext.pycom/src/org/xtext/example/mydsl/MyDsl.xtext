@@ -5,7 +5,7 @@ System:
 	hardware+=Hardware* boards+=Board* servers+=Server*;
 
 Hardware:
-	'Hardware' name=ID '{' boardMembers+=BoardMember* imports+=Imports*  function=Function? '}'
+	'Hardware' name=ID '{' boardMembers+=BoardMember* imports+=Imports?  function=Function? '}'
 ;
 
 Imports:
@@ -21,11 +21,11 @@ Function:
 ;
 
 FunctionDefinitions:
-	name=ID '(' parameters+=ParameterDefinitions? (',' parameters+=ParameterDefinitions)* ')' 'as' externalFunction=ExternalFunction
+	name=ID '(' ((parameters+=ParameterDefinitions) (',' parameters+=ParameterDefinitions)*)? ')' 'as' externalFunction=ExternalFunction
 ;
 
 ExternalFunction:
-	filename=Filename '.' name=ID '(' parameters+=ParameterDefinitions? (',' parameters+=ParameterDefinitions)* ')' 'returns' returnType=TYPES
+	filename=Filename '.' name=ID '(' ((parameters+=ParameterDefinitions) (',' parameters+=ParameterDefinitions)*)? ')' 'returns' returnType=TYPES
 ;
 	
 Filename: 
@@ -45,7 +45,7 @@ ParameterInt returns ParameterName:
 ;
 
 ParameterString returns ParameterName:
-	{ParameterString} value=ID
+	{ParameterString} value=STRING
 ;
 
 ParameterPin returns ParameterName:
@@ -57,7 +57,7 @@ ParameterBoolean returns ParameterName:
 ;
 
 FunctionCall:
-	board=[Board] '.' function=[FunctionDefinitions] '(' parameters+=ParameterName? (',' parameters+=ParameterName)* ')' | function=[FunctionDefinitions] '(' parameters+=ParameterName? (',' parameters+=ParameterName)* ')'
+	board=[Board] '.' function=[FunctionDefinitions] '(' ((parameters+=ParameterName) (',' parameters+=ParameterName)*)? ')' | function=[FunctionDefinitions]'(' ((parameters+=ParameterName) (',' parameters+=ParameterName)*)? ')'
 ;
 	
 Server:
