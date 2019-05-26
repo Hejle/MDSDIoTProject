@@ -6,12 +6,17 @@ package xtext.validation
 import org.eclipse.xtext.validation.Check
 import java.util.HashSet
 import xtext.pycom.PycomPackage
-import xtext.pycom.Board
 import xtext.pycom.FunctionCall
 import org.eclipse.xtext.EcoreUtil2
 import xtext.pycom.Connection
-import java.util.Arrays
 import java.util.regex.Pattern
+import xtext.pycom.ParameterInt
+import xtext.pycom.ParameterName
+import xtext.pycom.ParameterString
+import xtext.pycom.ParameterPin
+import xtext.pycom.ParameterBoolean
+import xtext.pycom.FunctionDefinitions
+import xtext.pycom.ParameterDefinitions
 
 /**
  * This class contains custom validation rules. 
@@ -20,16 +25,14 @@ import java.util.regex.Pattern
  */
 class PycomValidator extends AbstractPycomValidator {
 	
-//	public static val INVALID_NAME = 'invalidName'
-//
-//	@Check
-//	def checkGreetingStartsWithCapital(Greeting greeting) {
-//		if (!Character.isUpperCase(greeting.name.charAt(0))) {
-//			warning('Name should start with a capital', 
-//					PycomPackage.Literals.GREETING__NAME,
-//					INVALID_NAME)
-//		}
-//	}
+	public static val INVALID_PARAMETER = 'invalidParameter'
+
+
+	val INTEGER = "Integer"
+	val STRING = "String"
+	val VOID = "Nothing"
+	val BOOLEAN = "Boolean"
+	val PIN = "Pin"
 	
 	val IPv4_REGEX =
 			"^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$";
@@ -62,6 +65,47 @@ class PycomValidator extends AbstractPycomValidator {
 			}
 		}
 	}
+
+	
+	@Check
+	def checkParameterType(ParameterName parameterName) {
+		if(EcoreUtil2.getContainerOfType(parameterName, FunctionCall) instanceof FunctionCall) {
+			var parentFunction = EcoreUtil2.getContainerOfType(parameterName, FunctionCall)
+			var index = parentFunction.parameters.indexOf(parameterName)
+			if (parentFunction.function.parameters.length >= index && parentFunction.function.parameters.length !== 0 && index >= 0) {
+				var referencetype = parentFunction.function.parameters.get(index).type
+			
+				if (parameterName instanceof ParameterInt && !referencetype.equalsIgnoreCase(INTEGER)) {
+	     			error('Expected ' + referencetype + ' but got an ' + INTEGER, parameterName, PycomPackage.Literals.PARAMETER_INT__VALUE)
+	     		}
+	     		if (parameterName instanceof ParameterString && !referencetype.equalsIgnoreCase(STRING)) {
+	     			error('Expected ' + referencetype + ' but got a ' + STRING, PycomPackage.Literals.PARAMETER_STRING__VALUE)
+	     		}
+	     		if (parameterName instanceof ParameterPin && !referencetype.equalsIgnoreCase(PIN)) {
+	     			error('Expected ' + referencetype + ' but got a ' + PIN, PycomPackage.Literals.PARAMETER_PIN__VALUE)
+	     		}
+	     		if (parameterName instanceof ParameterBoolean && !referencetype.equalsIgnoreCase(BOOLEAN)) {
+	     			error('Expected ' + referencetype + ' but got a ' + BOOLEAN, PycomPackage.Literals.PARAMETER_BOOLEAN__VALUE)
+	     		}
+			}
+		}
+	}
+	
+	@Check
+	def checkParameterDefinitionType(ParameterDefinitions parameterDefinitions) {
+		if(EcoreUtil2.getContainerOfType(parameterDefinitions, FunctionDefinitions) instanceof FunctionDefinitions) {
+			var parentFunction = EcoreUtil2.getContainerOfType(parameterDefinitions, FunctionDefinitions)
+			var index = parentFunction.parameters.indexOf(parameterDefinitions)
+			var type = parameterDefinitions.type
+			if (parentFunction.externalFunction.parameters.length >= index && parentFunction.externalFunction.parameters.length !== 0 && index >= 0) {
+				var externalType = parentFunction.externalFunction.parameters.get(index).type
+			
+				if (!type.equalsIgnoreCase(externalType)) {
+	     			error('Expected ' + externalType + ' but got a ' + type, parameterDefinitions, PycomPackage.Literals.PARAMETER_DEFINITIONS__TYPE, INVALID_PARAMETER, externalType)
+	     		}
+			}	
+		}
+	}
 	
 	@Check
 	def portnumberWithinRange(Connection connection) {
@@ -69,16 +113,16 @@ class PycomValidator extends AbstractPycomValidator {
 			try {
 				var port = Integer.parseInt((connection.portnumber))
 				if (port < 0) {
-					error('Port number should not be negative', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')		
+					error('Port number should not be negative', PycomPackage.Literals.CONNECTION__PORTNUMBER)		
 				}
 				if (port > 65535) {
-					error('Port number should be less than 65535', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')		
+					error('Port number should be less than 65535', PycomPackage.Literals.CONNECTION__PORTNUMBER)		
 				}
 				if (port <= 1024) {
-					warning('It is recommended to not use ports in the range of 1 - 1024', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')		
+					warning('It is recommended to not use ports in the range of 1 - 1024', PycomPackage.Literals.CONNECTION__PORTNUMBER)		
 				}
 			} catch (NumberFormatException e) {
-				error('Ports should be a number', PycomPackage.Literals.CONNECTION__PORTNUMBER, 'invalid port')
+				error('Ports should be a number', PycomPackage.Literals.CONNECTION__PORTNUMBER)
 			}
 		}
 	}
@@ -87,7 +131,7 @@ class PycomValidator extends AbstractPycomValidator {
 	def checkHost(Connection connection) {
 		if(!connection.host.ipAdr.isNullOrEmpty) {
 			if(!validIPAddress(connection.host.ipAdr)) {
-				error('Invalid IP-Address', PycomPackage.Literals.CONNECTION__HOST, 'invalid ip')			
+				error('Invalid IP-Address', PycomPackage.Literals.CONNECTION__HOST)			
 			}
 		}
 	}

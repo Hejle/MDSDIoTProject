@@ -95,29 +95,32 @@ class PycomGenerator extends AbstractGenerator {
 	}
 	
 	def generatePycomFiles(Board b, Resource r, IFileSystemAccess2 fsa) {
-		generatePycom(b, r)
+		generatePycom(b)
 		var functions = generateFunctions(b, r)
 		'''
 		import pycom
 		import urequests
 		import machine
 		import time 
-		#New code
-		«generatePycomImports(b, r, fsa)»
-		«generateImports(b, r)»
+		
+		«generatePycomImports()»
+		«generateImports(b)»
 		isRunning = True
 		pycom.heartbeat(False)
 			
-		«generatePycomCode(b, r)»
-			
-		«generateExternalFunctions(b, r)»
+		«generatePycomCode()»
+		
+		#External Functions	
+		«generateExternalFunctions(b)»
+		
+		#Main Code
 		while(isRunning):
 			«functions»
 		#CODE GENERATION END
 		'''
 	}
 	
-	def generatePycomImports(Board b, Resource r, IFileSystemAccess2 fsa) { 
+	def generatePycomImports() { 
 		val sb = new StringBuilder();
 		importcode.forEach[k, v| {
 			sb.append(v + "\n")
@@ -125,7 +128,7 @@ class PycomGenerator extends AbstractGenerator {
 		return sb.toString
 	}
 	
-	def generatePycomCode(Board b, Resource r) { 
+	def generatePycomCode() { 
 		val sb = new StringBuilder();
 		sb.append("\n")
 		codeMap.forEach[k, v| {
@@ -134,7 +137,7 @@ class PycomGenerator extends AbstractGenerator {
 		return sb.toString
 	}
 	
-	def generateLogic(Board board, Resource resource) {
+	def generateLogic() {
 		val sb = new StringBuilder();
 		sb.append("\n")
 		logicmap.forEach[k, v| {
@@ -143,23 +146,23 @@ class PycomGenerator extends AbstractGenerator {
 		return sb.toString
 	}
 	
-	def generatePycom(Board b, Resource r) {
+	def generatePycom(Board b) {
 		importcode = new HashMap<String, String>();
 		codeMap = new HashMap<String, String>();
 		logicmap = new HashMap<String, String>();
 		globals = new HashMap<String, String>();
-		generatePycomActuator(b, r)
-		generatePycomSensor(b, r)
-		generateFunctionImports(b, r)
-		generateExternalFunctions(b, r)
+		generatePycomActuator(b)
+		generatePycomSensor(b)
+		generateFunctionImports(b)
+		generateExternalFunctions(b)
 	}
 	
-	def generatePycomActuator(Board b, Resource r) {
+	def generatePycomActuator(Board b) {
 		for (actuator : b.hardware.boardMembers.filter(typeof(Actuator))) {
 			for (actuatortype : actuator.actuatorTypes.filter(typeof(ModuleType))) {
 				if (!importcode.containsKey(actuatortype.typeName)) {
-					var import = generateModuleImport(b, r, actuatortype)
-					var code = generateModuleCode(b, r, actuatortype)
+					var import = generateModuleImport(actuatortype)
+					var code = generateModuleCode(actuatortype)
 					if(import !== null) {
 						importcode.put(actuatortype.typeName.name, import)
 					}
@@ -171,12 +174,12 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 	
-	def generatePycomSensor(Board b, Resource r) {
+	def generatePycomSensor(Board b) {
 		for (sensor : b.hardware.boardMembers.filter(typeof(Sensor))) {
 			for (sensortype : sensor.sensorTypes.filter(typeof(ModuleType))) {
 				if (!importcode.containsKey(sensortype.typeName)) {
-					var import = generateModuleImport(b, r, sensortype)
-					var code = generateModuleCode(b, r, sensortype)
+					var import = generateModuleImport(sensortype)
+					var code = generateModuleCode(sensortype)
 					if(import !== null) {
 						importcode.put(sensortype.typeName.name, import)
 					}
@@ -188,14 +191,14 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 	
-	def String generateModuleImport(Board b, Resource r, ModuleType type) {			
+	def String generateModuleImport(ModuleType type) {			
 		if(type.filename !== null && !type.filename.name.empty) {
 			return '''from «type.filename.name» import «type.filename.name» '''	
 		}
 		return null;		
 	}
 	
-	def String generateModuleCode(Board board, Resource resource, ModuleType type) {
+	def String generateModuleCode(ModuleType type) {
 		if(type.filename !== null && !type.filename.name.empty) {
 			return '''«type.name» = «type.filename.name»()'''
 		} else {
@@ -203,7 +206,7 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 	
-	def generateFunctionImports(Board board, Resource resource) {
+	def generateFunctionImports(Board board) {
 		var hardware = board.hardware
 		for (function : hardware.function.functiondef) {
 			var filename = function.externalFunction.filename.name
@@ -214,7 +217,7 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 
-	def generateExternalFunctions(Board board, Resource resource) {
+	def generateExternalFunctions(Board board) {
 		var sb = new StringBuilder()	
 		var str = ""	
 		for(function : board.hardware.function.functiondef) {
@@ -227,13 +230,14 @@ class PycomGenerator extends AbstractGenerator {
 			}
 			var String returnstatement = ""
 			if(!function.externalFunction.returnType.equalsIgnoreCase("Nothing")) {
-				returnstatement = "return"
+				returnstatement = "return "
 			}
 			
 			sb.append('''
 			def «function.name»(«str»):
-				«function.externalFunction.filename.name».«genExternalFunctionCall(function)»
+				«returnstatement»«function.externalFunction.filename.name».«genExternalFunctionCall(function)»
 			''')
+			sb.append("\n")
 		}
 		return sb.toString
 	}
@@ -254,7 +258,7 @@ class PycomGenerator extends AbstractGenerator {
 		return sb.toString
 	}
 	
-	def generateImports(Board b, Resource r) {
+	def generateImports(Board b) {
 		var sb = new StringBuilder()
 		for (imp : b.hardware.imports) {
 			for (impfiles : imp.importfiles) {
@@ -270,7 +274,7 @@ class PycomGenerator extends AbstractGenerator {
 		val sb = new StringBuilder();
 		for (exp : board.exps) {
 			if(exp instanceof ConditionalAction) {
-				sb.append(genInternalConditionalAction(exp, board, resource, 0))
+				sb.append(genInternalConditionalAction(exp, board, 0))
 			} else if (exp instanceof FunctionCall) {
 				sb.append(genInternalFunction(exp))
 			}
@@ -278,7 +282,7 @@ class PycomGenerator extends AbstractGenerator {
 		}
 		for (server : resource.allContents.toIterable.filter(typeof(Server))) {
 			for (condaction : server.exps) {
-				genConditionalAction(board, resource, condaction, server)
+				genConditionalAction(board, condaction, server)
 			} 				
 		} 	
 		val stringBuilder = new StringBuilder();
@@ -291,11 +295,11 @@ class PycomGenerator extends AbstractGenerator {
 		return sb.toString()	
 	}
 	
-	def String genInternalConditionalAction(ConditionalAction action, Board board, Resource resource, int depth) {
+	def String genInternalConditionalAction(ConditionalAction action, Board board, int depth) {
 		var exp = genPycomCondition(action.condition)
 		var s = '''
 		«genDepth(depth)»if «exp»:
-		«genInternalConditionBody(action, board, resource, depth+1)»
+		«genInternalConditionBody(action, board, depth+1)»
 		'''
 		return s
 	}
@@ -318,11 +322,11 @@ class PycomGenerator extends AbstractGenerator {
 		}
 	}
 	
-	def genInternalConditionBody(ConditionalAction action, Board board, Resource resource, int depth) {
+	def genInternalConditionBody(ConditionalAction action, Board board, int depth) {
 		var sb = new StringBuilder()
 		for (exp : action.expMembers) {
 			if(exp instanceof ConditionalAction) {
-				sb.append(genInternalConditionalAction(exp, board, resource, depth))
+				sb.append(genInternalConditionalAction(exp, board, depth))
 			} else if(exp instanceof FunctionCall) {
 				sb.append(genDepth(depth) + genInternalFunction(exp))
 			}
@@ -368,21 +372,21 @@ class PycomGenerator extends AbstractGenerator {
 		return '''«call.function.name»()'''
 	}
 	
-	def void genConditionalAction(Board board, Resource resource, ConditionalAction conAction, Server server) {
-		genCondition(board, resource, conAction.condition, server)
+	def void genConditionalAction(Board board, ConditionalAction conAction, Server server) {
+		genCondition(board, conAction.condition, server)
 		for (exp : conAction.expMembers) {
 			if(exp instanceof ConditionalAction) {
-				genConditionalAction(board, resource, exp, server)
+				genConditionalAction(board, exp, server)
 			} else if(exp instanceof FunctionCall) {
-				genFunction(board, resource, exp, server)
+				genFunction(board, exp, server)
 			}
 		}
 	}
 	
-	def void genCondition(Board board, Resource resource, Condition condition, Server server) {
+	def void genCondition(Board board, Condition condition, Server server) {
 		
 		 if(condition.nestedCondition !== null) {
-			genCondition(board, resource, condition.nestedCondition, server)
+			genCondition(board, condition.nestedCondition, server)
 		}
 		if(condition.logicEx.compExp !== null) {
 			if(condition.logicEx.compExp.left.outputfunction !== null) {
@@ -391,12 +395,12 @@ class PycomGenerator extends AbstractGenerator {
 					var op = condition.logicEx.compExp.op
 					if(condition.logicEx.compExp.right.outputfunction === null) {
 						var thresholdvalue = condition.logicEx.compExp.right.outputValue
-						generateThresholdFunction(board, resource, func, thresholdvalue, op, server)
+						generateThresholdFunction(board, func, thresholdvalue, op, server)
 					} else if (condition.logicEx.compExp.right.outputfunction.board.equals(board)) {
 						var thresholdfunc = condition.logicEx.compExp.right.outputfunction
-						generateDoubleFunction(board, resource, func, thresholdfunc, op, server)
+						generateDoubleFunction(board, func, thresholdfunc, op, server)
 					} else {
-						generateNoLimitFunction(board, resource, func, server)
+						generateNoLimitFunction(board, func, server)
 					}
 				}
 			}
@@ -406,12 +410,12 @@ class PycomGenerator extends AbstractGenerator {
 					var op = condition.logicEx.compExp.op
 					if(condition.logicEx.compExp.left.outputfunction === null) {
 						var thresholdvalue = condition.logicEx.compExp.left.outputValue
-						generateThresholdFunction(board, resource, func, thresholdvalue, op, server)
+						generateThresholdFunction(board, func, thresholdvalue, op, server)
 					} else if (condition.logicEx.compExp.left.outputfunction.board.equals(board)) {
 						var thresholdfunc = condition.logicEx.compExp.left.outputfunction
-						generateDoubleFunction(board, resource, func, thresholdfunc, op, server)
+						generateDoubleFunction(board, func, thresholdfunc, op, server)
 					} else {
-						generateNoLimitFunction(board, resource, func, server)
+						generateNoLimitFunction(board, func, server)
 					}
 				}
 			}
@@ -435,7 +439,7 @@ class PycomGenerator extends AbstractGenerator {
 		return '''/«board.name»/«function.function.name»/float/{}'''
 	}
 	
-	def generateThresholdFunction(Board board, Resource resource, FunctionCall function, int i, String op, Server server) {	
+	def generateThresholdFunction(Board board, FunctionCall function, int i, String op, Server server) {	
 		
 		var postaddress = getPostAddress(board, function)
 		var functioncall = genInternalFunction(function)
@@ -460,7 +464,7 @@ class PycomGenerator extends AbstractGenerator {
 		logicmap.put(function.function.name + op + i, threshold)
 	}
 	
-	def generateDoubleFunction(Board board, Resource resource, FunctionCall function, FunctionCall function2, String op, Server server) {
+	def generateDoubleFunction(Board board, FunctionCall function, FunctionCall function2, String op, Server server) {
 		var possibleKey1 = function.function.name + op + function2.function.name
 		var possibleKey2 = function2.function.name + op + function.function.name
 		if(!(logicmap.containsKey(possibleKey1) || logicmap.containsKey(possibleKey2))) {
@@ -485,7 +489,7 @@ class PycomGenerator extends AbstractGenerator {
 		
 	}
 	
-	def generateNoLimitFunction(Board board, Resource resource, FunctionCall function, Server server) {
+	def generateNoLimitFunction(Board board, FunctionCall function, Server server) {
 		var postaddress = getPostAddress(board, function)
 		var functioncall = genInternalFunction(function)
 		var noLimitCode = '''
@@ -499,7 +503,7 @@ class PycomGenerator extends AbstractGenerator {
 		logicmap.put(function.function.name, noLimitCode)
 	}
 	
-	def genFunction(Board board, Resource resource, FunctionCall functioncall, Server server) {
+	def genFunction(Board board, FunctionCall functioncall, Server server) {
 		if(functioncall.board.equals(board)) {
 			var address = getServerAddress(server.conn)
 			var String sendUrl = '''sendurl = "«address»/«board.name»/«functioncall.function.name»/turnOn'''
@@ -514,31 +518,6 @@ class PycomGenerator extends AbstractGenerator {
 			'''
 			logicmap.put(functioncall.function.name, getCode)
 		}
-	}
-	
-	def generatePycomWifiCode(Board b, Resource r) {
-		'''
-			#***WIFI SETUP***
-			wlan = WLAN(mode=WLAN.STA)
-			nets = wlan.scan()
-			ssidname = #***YOUR SSID***
-			password = #***YOUR PASSWORD***
-			
-			if wlan.isconnected() == False:
-			    for net in nets:
-			        print(net.ssid)
-			        if net.ssid == ssidname:
-			            wlan.connect(net.ssid, auth=(net.sec, password), timeout=5000)
-			            break
-			
-			while not wlan.isconnected():
-			    machine.idle()
-			print ('wlan connection succeeded!')
-			print (wlan.ifconfig())
-			
-			#***WIFI SETUP END***
-			
-		'''
 	}
 	
 //	SEVER CODE BELOW

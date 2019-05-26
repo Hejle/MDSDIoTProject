@@ -4,6 +4,18 @@
 package xtext.ui.quickfix
 
 import org.eclipse.xtext.ui.editor.quickfix.DefaultQuickfixProvider
+import xtext.validation.PycomValidator
+import org.eclipse.xtext.ui.editor.quickfix.Fix
+import org.eclipse.xtext.validation.Issue
+import org.eclipse.xtext.ui.editor.quickfix.IssueResolutionAcceptor
+import xtext.pycom.ParameterDefinitions
+import org.eclipse.xtext.util.concurrent.IUnitOfWork
+import org.eclipse.xtext.resource.XtextResource
+import org.eclipse.xtext.ui.editor.model.edit.IModification
+import org.eclipse.xtext.ui.editor.model.edit.IModificationContext
+import org.eclipse.jface.text.BadLocationException
+import org.eclipse.xtext.EcoreUtil2
+import xtext.pycom.FunctionDefinitions
 
 /**
  * Custom quickfixes.
@@ -12,13 +24,33 @@ import org.eclipse.xtext.ui.editor.quickfix.DefaultQuickfixProvider
  */
 class PycomQuickfixProvider extends DefaultQuickfixProvider {
 
-//	@Fix(PycomValidator.INVALID_NAME)
-//	def capitalizeName(Issue issue, IssueResolutionAcceptor acceptor) {
-//		acceptor.accept(issue, 'Capitalize name', 'Capitalize the name.', 'upcase.png') [
-//			context |
-//			val xtextDocument = context.xtextDocument
-//			val firstLetter = xtextDocument.get(issue.offset, 1)
-//			xtextDocument.replace(issue.offset, 1, firstLetter.toUpperCase)
-//		]
-//	}
+	@Fix(PycomValidator.INVALID_PARAMETER)
+	def capitalizeName(Issue issue, IssueResolutionAcceptor acceptor) {
+		var type = "Unknown"
+		if(!issue.data.isEmpty) {
+			type = issue.data.get(0)
+		}
+		acceptor.accept(issue, 'Change the type to ' + type, 'Change type', null, new IModification() {
+			override apply(IModificationContext context) throws BadLocationException  {
+				context.getXtextDocument().modify(new IUnitOfWork<String, XtextResource>() {	
+					override exec(XtextResource state) throws Exception {
+						var parameterDefinitions = state.getEObject(issue.uriToProblem.fragment) as ParameterDefinitions
+						if(EcoreUtil2.getContainerOfType(parameterDefinitions, FunctionDefinitions) instanceof FunctionDefinitions) {
+							var function = EcoreUtil2.getContainerOfType(parameterDefinitions, FunctionDefinitions)
+							var index = function.parameters.indexOf(parameterDefinitions)
+							var type = parameterDefinitions.type
+							if (function.externalFunction.parameters.length >= index && function.externalFunction.parameters.length !== 0 && index >= 0) {
+								var externalType = function.externalFunction.parameters.get(index).type
+								parameterDefinitions.type = externalType
+							}
+						}
+						return null
+					}
+					
+				})
+			}
+			
+		}
+	)}
+
 }
