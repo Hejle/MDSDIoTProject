@@ -38,12 +38,11 @@ class PycomGenerator extends AbstractGenerator {
 	var HashMap<String, String> codeMap
 	
 	var HashMap<String, String> logicmap
-	var HashMap<String, String> globals
 	
 	override void doGenerate(Resource resource, IFileSystemAccess2 fsa, IGeneratorContext context) {
 		
 		for (board : resource.allContents.toIterable.filter(typeof(Board))) {
-			fsa.generateFile(board.name + ".py", generatePycomFiles(board, resource, fsa))			
+			fsa.generateFile(board.name + ".py", generatePycomFiles(board, resource))			
 		}
 				
 		for (server : resource.allContents.toIterable.filter(typeof(Server))) {
@@ -94,7 +93,7 @@ class PycomGenerator extends AbstractGenerator {
 		return op
 	}
 	
-	def generatePycomFiles(Board b, Resource r, IFileSystemAccess2 fsa) {
+	def generatePycomFiles(Board b, Resource r) {
 		generatePycom(b)
 		var functions = generateFunctions(b, r)
 		'''
@@ -103,7 +102,7 @@ class PycomGenerator extends AbstractGenerator {
 		import machine
 		import time 
 		
-		«generatePycomImports()»
+		«generatePycomImports»
 		«generateImports(b)»
 		isRunning = True
 		pycom.heartbeat(False)
@@ -150,7 +149,6 @@ class PycomGenerator extends AbstractGenerator {
 		importcode = new HashMap<String, String>();
 		codeMap = new HashMap<String, String>();
 		logicmap = new HashMap<String, String>();
-		globals = new HashMap<String, String>();
 		generatePycomActuator(b)
 		generatePycomSensor(b)
 		generateFunctionImports(b)
